@@ -1088,31 +1088,46 @@ function App(){
       revRef.current=1;
     catch(e){setMsg('Erro: '+(e&&e.code?e.code:'sem código')+' - '+(e&&e.message?e.message:String(e)));}
   }
-  async function joinRoom(rawCode,asColor){
-    var code=(rawCode||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-    if(code.length<4){setMsg('Digite o código da sala.');return;}
-    setBusy(true);setMsg('');
+  
+  async function createRoom(){
+    setBusy(true);
+    setMsg('');
     try{
       var caps=await getCap(),db=caps[0],user=caps[1];
       var uid=user?await user.id():null;
-      if(!db||!uid){setMsg('O modo online não está disponível neste link. Abra o jogo pelo Claude, conectado à sua conta.');setBusy(false);return;}
-      var ref=db.doc('games/'+code),sn=await ref.get();
-      if(!sn.exists){setMsg('Sala não encontrada. Confira o código.');setBusy(false);return;}
-      var d=sn.data(),color=null;
-      if(d.white===uid)color='w';
-      else if(d.black===uid)color='b';
-      else if(!d.black){
-        await ref.update({black:uid});
-        var chk=await ref.get();
-        if(chk.exists&&chk.data().black===uid)color='b';
+      if(!db||!uid){
+        setMsg('O modo online ainda não está configurado nesta versão do jogo.');
+        setBusy(false);
+        return;
       }
-      if(!color){setMsg('Essa sala já tem dois jogadores.');setBusy(false);return;}
-      if(color==='b')Sound.play('join');
-      enterRoom(db,code,color,uid,(d.black||color==='b')?'ready':'waiting');
-    }catch(e){setMsg('Não consegui entrar na sala. Verifique a conexão e tente de novo.');}
+      var code=null,tries=0;
+      while(tries<6){
+        var c=genCode();
+        var sn=await db.doc('games/'+c).get();
+        if(!sn.exists){code=c;break;}
+        tries++;
+      }
+      if(!code){
+        setMsg('Não consegui criar uma sala. Tente de novo.');
+        setBusy(false);
+        return;
+      }
+      var g0=newGame();
+      await db.doc('games/'+code).set({
+        white:uid,
+        black:null,
+        rev:1,
+        by:uid,
+        state:packState(g0,null),
+        created:Date.now()
+      });
+      enterRoom(db,code,'w',uid,'waiting');
+      revRef.current=1;
+    }catch(e){
+      setMsg('Erro: '+(e&&e.code?e.code:'sem código')+' - '+(e&&e.message?e.message:String(e)));
+    }
     setBusy(false);
   }
-
   /* ---- fluxo do jogo ---- */
   function finish(next,eff){
     setG(next);
