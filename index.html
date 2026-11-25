@@ -1086,8 +1086,7 @@ function App(){
       await db.doc('games/'+code).set({white:uid,black:null,rev:1,by:uid,state:packState(g0,null),created:Date.now()});
       enterRoom(db,code,'w',uid,'waiting');
       revRef.current=1;
-    }catch(e){setMsg('Erro ao criar a sala. Verifique a conexão e a configuração do servidor.');}
-    setBusy(false);
+    catch(e){setMsg('Erro: '+(e&&e.code?e.code:'sem código')+' - '+(e&&e.message?e.message:String(e)));}
   }
   async function joinRoom(rawCode,asColor){
     var code=(rawCode||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
